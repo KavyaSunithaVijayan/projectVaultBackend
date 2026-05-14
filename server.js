@@ -1,14 +1,13 @@
 const express = require("express");
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsdoc = require("swagger-jsdoc");
 const db = require("./database");
 const studentRoutes = require("./routes/student");
 const adminRoutes = require("./routes/admin");
-const swaggerUi = require("swagger-ui-express");
-const swaggerJsdoc = require("swagger-jsdoc");
 
 const app = express();
 app.use(express.json());
 
-// Swagger config
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -27,15 +26,23 @@ const swaggerOptions = {
         description: "Local server",
       },
     ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
   },
-  apis: ["./routes/*.js"], // reads JSDoc comments from your route files
+  apis: ["./routes/*.js"],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI at "/"
-app.use("/", swaggerUi.serve);
-app.get("/", swaggerUi.setup(swaggerSpec));
+// ✅ Swagger at root — NO app.get("/") below this
+app.use("/", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use("/api/student", studentRoutes);
