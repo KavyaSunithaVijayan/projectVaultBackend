@@ -4,7 +4,6 @@ const multer = require("multer");
 const path = require("path");
 const db = require("../database");
 
-// Multer config - save zip files to uploads folder
 const storage = multer.diskStorage({
   destination: "./uploads/",
   filename: (req, file, cb) => {
@@ -20,10 +19,68 @@ const upload = multer({
     }
     cb(null, true);
   },
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-// POST /api/student/submit — student uploads project
+/**
+ * @swagger
+ * tags:
+ *   name: Student
+ *   description: Student project submission endpoints
+ */
+
+/**
+ * @swagger
+ * /api/student/submit:
+ *   post:
+ *     summary: Submit a student project
+ *     tags: [Student]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - student_name
+ *               - student_email
+ *               - project_title
+ *               - zipfile
+ *             properties:
+ *               student_name:
+ *                 type: string
+ *                 example: John Doe
+ *               student_email:
+ *                 type: string
+ *                 example: john@example.com
+ *               project_title:
+ *                 type: string
+ *                 example: My Awesome Project
+ *               zipfile:
+ *                 type: string
+ *                 format: binary
+ *                 description: ZIP file of the project (max 50MB)
+ *     responses:
+ *       201:
+ *         description: Project submitted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Project submitted successfully!
+ *       400:
+ *         description: Missing required fields or file
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ */
 router.post("/submit", upload.single("zipfile"), (req, res) => {
   const { student_name, student_email, project_title } = req.body;
 
@@ -38,10 +95,8 @@ router.post("/submit", upload.single("zipfile"), (req, res) => {
   }
 
   db.prepare(
-    `
-    INSERT INTO submissions (student_name, student_email, project_title, file_path, file_size)
-    VALUES (?, ?, ?, ?, ?)
-  `,
+    `INSERT INTO submissions (student_name, student_email, project_title, file_path, file_size)
+     VALUES (?, ?, ?, ?, ?)`,
   ).run(
     student_name,
     student_email,
@@ -53,7 +108,42 @@ router.post("/submit", upload.single("zipfile"), (req, res) => {
   res.status(201).json({ message: "Project submitted successfully!" });
 });
 
-// GET /api/student/status/:email — student checks their submission
+/**
+ * @swagger
+ * /api/student/status/{email}:
+ *   get:
+ *     summary: Check submission status by email
+ *     tags: [Student]
+ *     parameters:
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: john@example.com
+ *     responses:
+ *       200:
+ *         description: List of submissions for the email
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   project_title:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                   admin_note:
+ *                     type: string
+ *                   submitted_at:
+ *                     type: string
+ *       404:
+ *         description: No submissions found for this email
+ */
 router.get("/status/:email", (req, res) => {
   const submissions = db
     .prepare(

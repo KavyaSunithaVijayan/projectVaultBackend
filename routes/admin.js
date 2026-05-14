@@ -6,9 +6,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const fs = require("fs");
 
-const SECRET = "mysecretkey123"; // change this to something strong
+const SECRET = "@k2n+_25wins";
 
-// Middleware — protect admin routes
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token =
@@ -26,7 +25,41 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// POST /api/admin/register — create admin account (run once)
+/**
+ * @swagger
+ * tags:
+ *   name: Admin
+ *   description: Admin management endpoints
+ */
+
+/**
+ * @swagger
+ * /api/admin/register:
+ *   post:
+ *     summary: Register a new admin account
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: admin1
+ *               password:
+ *                 type: string
+ *                 example: strongpassword123
+ *     responses:
+ *       200:
+ *         description: Admin created successfully
+ *       400:
+ *         description: Username already exists
+ */
 router.post("/register", async (req, res) => {
   const { username, password } = req.body;
   const hashed = await bcrypt.hash(password, 10);
@@ -42,7 +75,45 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// POST /api/admin/login — admin login
+/**
+ * @swagger
+ * /api/admin/login:
+ *   post:
+ *     summary: Admin login — returns JWT token
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: admin1
+ *               password:
+ *                 type: string
+ *                 example: strongpassword123
+ *     responses:
+ *       200:
+ *         description: Login successful, returns token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *       401:
+ *         description: Wrong password
+ *       404:
+ *         description: Admin not found
+ */
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const admin = db
@@ -60,7 +131,20 @@ router.post("/login", async (req, res) => {
   res.json({ message: "Login successful!", token });
 });
 
-// GET /api/admin/submissions — get all submissions
+/**
+ * @swagger
+ * /api/admin/submissions:
+ *   get:
+ *     summary: Get all submissions
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all submissions
+ *       401:
+ *         description: Unauthorized
+ */
 router.get("/submissions", authMiddleware, (req, res) => {
   const submissions = db
     .prepare("SELECT * FROM submissions ORDER BY submitted_at DESC")
@@ -68,7 +152,29 @@ router.get("/submissions", authMiddleware, (req, res) => {
   res.json(submissions);
 });
 
-// GET /api/admin/download/:id — download student zip
+/**
+ * @swagger
+ * /api/admin/download/{id}:
+ *   get:
+ *     summary: Download a student's ZIP file
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: ZIP file download
+ *       404:
+ *         description: Submission or file not found
+ *       401:
+ *         description: Unauthorized
+ */
 router.get("/download/:id", authMiddleware, (req, res) => {
   const submission = db
     .prepare("SELECT * FROM submissions WHERE id = ?")
@@ -83,18 +189,69 @@ router.get("/download/:id", authMiddleware, (req, res) => {
   res.download(filePath);
 });
 
-// PATCH /api/admin/review/:id — update status and add note
+/**
+ * @swagger
+ * /api/admin/review/{id}:
+ *   patch:
+ *     summary: Update submission status and add admin note
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 example: approved
+ *               admin_note:
+ *                 type: string
+ *                 example: Great work!
+ *     responses:
+ *       200:
+ *         description: Submission updated
+ *       401:
+ *         description: Unauthorized
+ */
 router.patch("/review/:id", authMiddleware, (req, res) => {
   const { status, admin_note } = req.body;
-
   db.prepare(
     "UPDATE submissions SET status = ?, admin_note = ? WHERE id = ?",
   ).run(status, admin_note, req.params.id);
-
   res.json({ message: "Submission updated!" });
 });
 
-// DELETE /api/admin/submissions/:id — delete a submission
+/**
+ * @swagger
+ * /api/admin/submissions/{id}:
+ *   delete:
+ *     summary: Delete a submission
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Submission deleted
+ *       401:
+ *         description: Unauthorized
+ */
 router.delete("/submissions/:id", authMiddleware, (req, res) => {
   db.prepare("DELETE FROM submissions WHERE id = ?").run(req.params.id);
   res.json({ message: "Submission deleted!" });
