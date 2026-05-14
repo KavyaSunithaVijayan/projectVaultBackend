@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const fs = require("fs");
 
-const SECRET = "@k2n+_25wins";
+const SECRET = "mysecretkey123";
 
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers["authorization"];
