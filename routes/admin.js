@@ -8,22 +8,29 @@ const fs = require("fs");
 
 const SECRET = "@k2n+_25wins";
 
+// ── Auth middleware ──────────────────────────────────────────────────────────
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token =
     authHeader && authHeader.startsWith("Bearer ")
       ? authHeader.split(" ")[1]
       : authHeader;
+
   if (!token) return res.status(401).json({ error: "No token provided" });
 
   try {
     const decoded = jwt.verify(token, SECRET);
+    if (decoded.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
     req.admin = decoded;
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
   }
 };
+
+// ── Routes ───────────────────────────────────────────────────────────────────
 
 /**
  * @swagger
@@ -62,6 +69,13 @@ const authMiddleware = (req, res, next) => {
  */
 router.post("/register", async (req, res) => {
   const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ error: "username and password are required" });
+  }
+
   const hashed = await bcrypt.hash(password, 10);
 
   try {
@@ -99,7 +113,7 @@ router.post("/register", async (req, res) => {
  *                 example: strongpassword123
  *     responses:
  *       200:
- *         description: Login successful, returns token
+ *         description: Login successful, returns token and role
  *         content:
  *           application/json:
  *             schema:
@@ -109,6 +123,8 @@ router.post("/register", async (req, res) => {
  *                   type: string
  *                 token:
  *                   type: string
+ *                 role:
+ *                   type: string
  *       401:
  *         description: Wrong password
  *       404:
@@ -116,6 +132,13 @@ router.post("/register", async (req, res) => {
  */
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ error: "username and password are required" });
+  }
+
   const admin = db
     .prepare("SELECT * FROM admins WHERE username = ?")
     .get(username);
@@ -125,10 +148,11 @@ router.post("/login", async (req, res) => {
   const match = await bcrypt.compare(password, admin.password);
   if (!match) return res.status(401).json({ error: "Wrong password" });
 
-  const token = jwt.sign({ id: admin.id, username }, SECRET, {
+  const token = jwt.sign({ id: admin.id, username, role: "admin" }, SECRET, {
     expiresIn: "1d",
   });
-  res.json({ message: "Login successful!", token });
+
+  res.json({ message: "Login successful!", token, role: "admin" });
 });
 
 /**
@@ -179,6 +203,7 @@ router.get("/download/:id", authMiddleware, (req, res) => {
   const submission = db
     .prepare("SELECT * FROM submissions WHERE id = ?")
     .get(req.params.id);
+
   if (!submission)
     return res.status(404).json({ error: "Submission not found" });
 
